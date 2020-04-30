@@ -1,7 +1,10 @@
 package com.seirius.theeye;
 
 import com.seirius.theeye.common.TestTheMap;
+import com.sun.net.httpserver.HttpServer;
 import net.minecraft.block.Block;
+import net.minecraft.world.dimension.DimensionType;
+import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -16,10 +19,10 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.imageio.ImageIO;
-import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
 
 @Mod("theeye")
 public class TheEye {
@@ -53,8 +56,37 @@ public class TheEye {
 
     @SubscribeEvent
     public void onServerStarting(FMLServerStartingEvent event) {
+        final ServerWorld world = event.getServer().getWorld(DimensionType.OVERWORLD);
         System.out.println("--------------- ServerSTARTUP");
         TestTheMap.register(event.getCommandDispatcher());
+        try {
+            final String apiMap = "/api/map/";
+            HttpServer server = HttpServer.create(new InetSocketAddress(9000), 0);
+            server.createContext(apiMap, (httpExchange -> {
+                try {
+                    String path = httpExchange.getRequestURI().getPath();
+                    String params = path.substring(apiMap.length()).replace(".png", "");
+                    String[] zoomXZ = params.split("/");
+                    int x = Integer.parseInt(zoomXZ[1]);
+                    int z = Integer.parseInt(zoomXZ[2]);
+                    byte[] image = TestTheMap.getChunkImageAsBytes(world, x * TestTheMap.CHUNK_SIZE, z * TestTheMap.CHUNK_SIZE);
+                    httpExchange.getResponseHeaders().set("Content-Type", "image/png");
+                    httpExchange.sendResponseHeaders(200, image.length);
+                    OutputStream output = httpExchange.getResponseBody();
+                    output.write(image);
+                    output.close();
+                    httpExchange.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }));
+            server.setExecutor(null);
+            server.start();
+            System.out.println("Server started");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
 
     @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
