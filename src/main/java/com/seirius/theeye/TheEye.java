@@ -23,6 +23,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.util.HashMap;
 
 @Mod("theeye")
 public class TheEye {
@@ -67,9 +68,12 @@ public class TheEye {
                     String path = httpExchange.getRequestURI().getPath();
                     String params = path.substring(apiMap.length()).replace(".png", "");
                     String[] zoomXZ = params.split("/");
+                    int zoom = Integer.parseInt(zoomXZ[0]);
                     int x = Integer.parseInt(zoomXZ[1]);
                     int z = Integer.parseInt(zoomXZ[2]);
-                    byte[] image = TestTheMap.getChunkImageAsBytes(world, x * TestTheMap.CHUNK_SIZE, z * TestTheMap.CHUNK_SIZE);
+                    int actualZoom = TestTheMap.transformZoom(zoom);
+                    System.out.println(String.format("%d * (%d, %d)", actualZoom, x, z));
+                    byte[] image = TestTheMap.getChunkImageAsBytes(world, x, z, actualZoom);
                     httpExchange.getResponseHeaders().set("Content-Type", "image/png");
                     httpExchange.sendResponseHeaders(200, image.length);
                     OutputStream output = httpExchange.getResponseBody();
