@@ -1,6 +1,10 @@
 package com.seirius.theeye;
 
-import com.seirius.theeye.common.TestTheMap;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.google.common.io.ByteStreams;
+import com.seirius.theeye.common.TheMap;
 import com.sun.net.httpserver.HttpServer;
 import net.minecraft.block.Block;
 import net.minecraft.world.dimension.DimensionType;
@@ -19,15 +23,35 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
-import java.util.HashMap;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 @Mod("theeye")
 public class TheEye {
     private static final Logger LOGGER = LogManager.getLogger();
+
+    private final static LoadingCache<String, byte[]> IMAGE_MAP_CACHE = CacheBuilder.newBuilder()
+            .maximumSize(3000)
+            .expireAfterAccess(12, TimeUnit.HOURS)
+            .build(
+                    new CacheLoader<String, byte[]>() {
+                        @Override
+                        public byte[] load(String key) throws Exception {
+                            int[] data = Arrays.stream(key.split(":")).mapToInt(Integer::parseInt).toArray();
+                            return TheMap.getChunkImageAsBytes(WORLD, data[0], data[1], data[2]);
+                        }
+                    }
+            );
+
+    public static ServerWorld WORLD;
 
     public TheEye() {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
@@ -57,23 +81,40 @@ public class TheEye {
 
     @SubscribeEvent
     public void onServerStarting(FMLServerStartingEvent event) {
-        final ServerWorld world = event.getServer().getWorld(DimensionType.OVERWORLD);
+        WORLD = event.getServer().getWorld(DimensionType.OVERWORLD);
         System.out.println("--------------- ServerSTARTUP");
-        TestTheMap.register(event.getCommandDispatcher());
+        TheMap.register(event.getCommandDispatcher());
         try {
             final String apiMap = "/api/map/";
+            final String map = "/";
             HttpServer server = HttpServer.create(new InetSocketAddress(9000), 0);
+            server.createContext(map, (httpExchange -> {
+                try {
+                    byte[] indexHtml = ByteStreams.toByteArray(TheEye.class.getResourceAsStream("/index.html"));
+                    ClassLoader.getSystemClassLoader().getResource("index.html");
+                    httpExchange.getResponseHeaders().set("Content-Type", "text/html");
+                    httpExchange.sendResponseHeaders(200, indexHtml.length);
+                    OutputStream output = httpExchange.getResponseBody();
+                    output.write(indexHtml);
+                    output.close();
+                    httpExchange.close();
+                } catch (Exception e) {
+                    if (e instanceof IOException) {
+                        return;
+                    }
+                    e.printStackTrace();
+                }
+            }));
             server.createContext(apiMap, (httpExchange -> {
                 try {
+
                     String path = httpExchange.getRequestURI().getPath();
                     String params = path.substring(apiMap.length()).replace(".png", "");
                     String[] zoomXZ = params.split("/");
                     int zoom = Integer.parseInt(zoomXZ[0]);
                     int x = Integer.parseInt(zoomXZ[1]);
                     int z = Integer.parseInt(zoomXZ[2]);
-                    int actualZoom = TestTheMap.transformZoom(zoom);
-                    System.out.println(String.format("%d * (%d, %d)", actualZoom, x, z));
-                    byte[] image = TestTheMap.getChunkImageAsBytes(world, x, z, actualZoom);
+                    byte[] image = IMAGE_MAP_CACHE.get(getKey(x, z, TheMap.transformZoom(zoom)));
                     httpExchange.getResponseHeaders().set("Content-Type", "image/png");
                     httpExchange.sendResponseHeaders(200, image.length);
                     OutputStream output = httpExchange.getResponseBody();
@@ -81,6 +122,9 @@ public class TheEye {
                     output.close();
                     httpExchange.close();
                 } catch (Exception e) {
+                    if (e instanceof IOException) {
+                        return;
+                    }
                     e.printStackTrace();
                 }
             }));
@@ -98,6 +142,10 @@ public class TheEye {
         @SubscribeEvent
         public static void onBlocksRegistry(final RegistryEvent.Register<Block> blockRegistryEvent) {
         }
+    }
+
+    public static String getKey(int x, int z, int zoom) {
+        return String.format("%d:%d:%d", x, z, zoom);
     }
 
 }
