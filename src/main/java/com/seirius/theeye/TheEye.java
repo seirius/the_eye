@@ -4,6 +4,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.io.ByteStreams;
+import com.seirius.theeye.common.PlayerListController;
 import com.seirius.theeye.common.TheMap;
 import com.sun.net.httpserver.HttpServer;
 import net.minecraft.block.Block;
@@ -23,14 +24,9 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
@@ -88,6 +84,7 @@ public class TheEye {
             final String apiMap = "/api/map/";
             final String map = "/";
             HttpServer server = HttpServer.create(new InetSocketAddress(9000), 0);
+            server.createContext(PlayerListController.PATH,  new PlayerListController(WORLD));
             server.createContext(map, (httpExchange -> {
                 try {
                     byte[] indexHtml = ByteStreams.toByteArray(TheEye.class.getResourceAsStream("/index.html"));
@@ -107,7 +104,6 @@ public class TheEye {
             }));
             server.createContext(apiMap, (httpExchange -> {
                 try {
-
                     String path = httpExchange.getRequestURI().getPath();
                     String params = path.substring(apiMap.length()).replace(".png", "");
                     String[] zoomXZ = params.split("/");

@@ -28,9 +28,7 @@ public class TheMap {
     public static void register(CommandDispatcher<CommandSource> dispatcher) {
         dispatcher.register(
             Commands.literal("testmap").requires((permission) -> permission.hasPermissionLevel(4))
-                .then(Commands.literal("tiles").executes((command) -> {
-                    return 1;
-                }))
+                .then(Commands.literal("tiles").executes((command) -> 1))
         );
     }
 
@@ -49,7 +47,6 @@ public class TheMap {
         ChunkStorage chunkStorage = new ChunkStorage(world);
 
         IChunk chunk = chunkStorage.getChunk(minX, minZ);
-
         for (int imageZ = 0; imageZ < zoomedSize; imageZ++) {
             int worldZ = imageZ + worldStartZ;
             for (int imageX = 0; imageX < zoomedSize; imageX++) {
@@ -64,14 +61,16 @@ public class TheMap {
                 }
                 int topY = chunk.getTopBlockY(Heightmap.Type.WORLD_SURFACE, worldX, worldZ);
                 BlockState blockState = chunk.getBlockState(new BlockPos(worldX, topY, worldZ));
-                pixels[imageZ * zoomedSize + imageX] = blockState.getMaterial().getColor().colorValue;
+                int color = blockState.getMaterial().getColor().colorValue;
+                float colorFactor = getColorFactor(topY);
+                pixels[imageZ * zoomedSize + imageX] = manipulateColor(color, colorFactor);
             }
         }
 
         BufferedImage pixelImage = new BufferedImage(zoomedSize, zoomedSize, BufferedImage.TYPE_INT_RGB);
         pixelImage.setRGB(0, 0, zoomedSize, zoomedSize, pixels, 0, zoomedSize);
 
-        return TheMap.resizeImage(pixelImage, 320, 320);
+        return TheMap.resizeImage(pixelImage, 160, 160);
     }
 
     private static int resolveCoorForChunk(int coor) {
@@ -93,6 +92,37 @@ public class TheMap {
         g2.drawImage(buf, 0, 0, width, height, null);
         g2.dispose();
         return bufImage;
+    }
+
+    public static float getColorFactor(int y) {
+        float oceanLevel = 62f;
+        float rawFactor = oceanLevel / y;
+        if (rawFactor < 1) {
+            return 2 - rawFactor;
+        } else {
+            return (rawFactor - 2) * -1;
+        }
+    }
+
+    public static int manipulateColor(int color, float factor) {
+        Color col = new Color(color);
+        int r, g, b;
+        if (factor <= 1) {
+            r = Math.round(col.getRed() * factor);
+            g = Math.round(col.getGreen() * factor);
+            b = Math.round(col.getBlue() * factor);
+        } else {
+            float difFactor = factor - 1;
+            int red = col.getRed(), green = col.getGreen(), blue = col.getBlue();
+            r = Math.round((255 - red) * difFactor + red);
+            g = Math.round((255 - green) * difFactor + green);
+            b = Math.round((255 - blue) * difFactor + blue);
+        }
+
+        int rgb = r;
+        rgb = (rgb << 8) + g;
+        rgb = (rgb << 8) + b;
+        return rgb;
     }
 
 }
