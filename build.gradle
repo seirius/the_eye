@@ -85,6 +85,11 @@ minecraft {
     }
 }
 
+configurations {
+    embed
+    compile.extendsFrom(embed)
+}
+
 dependencies {
     // Specify the version of Minecraft to use, If this is any group other then 'net.minecraft' it is assumed
     // that the dep is a ForgeGradle 'patcher' dependency. And it's patches will be applied.
@@ -122,12 +127,18 @@ dependencies {
     compile group: 'com.google.guava', name: 'guava', version: '10.0.1'
 
     // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
-    compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.11.0'
+    compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.9.8'
+
+    embed files("libs/jackson-core-2.9.8.jar")
+    embed files("libs/jackson-annotations-2.9.0.jar")
+    embed files("libs/jackson-databind-2.9.8.jar")
+
 
 }
 
 // Example for how to get properties into the manifest for reading by the runtime..
 jar {
+    from configurations.embed.collect { it.isDirectory() ? it : zipTree(it) }
     manifest {
         attributes([
             "Specification-Title": "theeye",
@@ -139,6 +150,9 @@ jar {
             "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
         ])
     }
+//    into('lib') {
+//        from 'libs'
+//    }
 }
 
 // Example configuration to allow publishing using the maven-publish task

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.server.ServerWorld;
 
 import java.io.OutputStream;
@@ -28,9 +29,21 @@ public class PlayerListController implements HttpHandler {
             List<HashMap<String, Object>> playerList = new ArrayList<>();
             for (ServerPlayerEntity player : players) {
                 HashMap<String, Object> playerData = new HashMap<>();
-                playerData.put("name", player.getDisplayName().getString());
-                playerData.put("position", player.getPositionVec());
-                playerData.put("nameUuid", player.getDisplayNameAndUUID().getString());
+                String playerName = player.getDisplayName().getString();
+                String uuid = player.getDisplayNameAndUUID().getString()
+                        .replace(playerName + " ", "")
+                        .replace("(", "")
+                        .replace(")", "")
+                        .replace("-", "");
+                playerData.put("name", playerName);
+                Vec3d position = player.getPositionVec();
+                HashMap<String, Double> parsedPosition = new HashMap<>();
+                parsedPosition.put("x", position.x);
+                parsedPosition.put("y", position.y);
+                parsedPosition.put("z", position.z);
+                playerData.put("position", parsedPosition);
+                playerData.put("uuid", uuid);
+                playerData.put("avatar", String.format("https://mc-heads.net/avatar/%s/32.png", uuid));
                 playerList.add(playerData);
             }
 

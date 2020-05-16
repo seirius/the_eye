@@ -27,40 +27,71 @@
 <body>
 <div id="map"></div>
 <script>
+        const host = "http://192.168.1.92:9000";
+
+        const MAX_ZOOM = 12;
+
+        const normalizedZoom = (map) => {
+            return MAX_ZOOM - map.getZoom() + 1;
+        };
+
+        const getMultiplier = (map) => {
+            return 10 / normalizedZoom(map);
+        }
+
+        const tValue = 1;
+
         const start = async () => {
-            var map = L.map('map', {
-                zoomControl: false,
+            L.CRS.MySimple  = L.extend({}, L.CRS.Simple, {
+                transformation: new L.Transformation(tValue, 0, tValue, 0),
+            });
+
+            const map = L.map('map', {
+                zoomControl: true,
                 minZoom: 8,
                 maxZoom: 12,
                 zoom: 12,
                 center: [0, 0],
-                crs: L.CRS.Simple,
+                crs: L.CRS.MySimple,
+                noWrap: true,
             });
 
-            L.tileLayer('http://localhost:9000/api/map/{z}/{x}/{y}.png', {
+            L.tileLayer(`${host}/api/map/{z}/{x}/{y}.png`, {
                 attribution: '&copy; Made by SeiRiuS',
+                tileSize: 160,
+                noWrap: true,
             }).addTo(map);
 
             const markers = {};
 
-            const posSub = 260;
+            L.marker([0, 0], {
+                title: "Center",
+            }).addTo(map);
+
 
             setInterval(async () => {
-                const { data } = await axios.get('http://localhost:9000/api/players');
-                data.forEach(({ name, position: { x, z } }) => {
+                const { data } = await axios.get(`${host}/api/players`);
+                data.forEach(({ name, position: { x, z }, avatar }) => {
                     let playerMarker = markers[name];
-                    const parsedX = x / posSub;
-                    const parsedZ = z / posSub * -1;
+                    x = x * getMultiplier(map);
+                    z = z * getMultiplier(map);
+                    const latLng = map.unproject(L.point(x, z));
                     if (!playerMarker) {
-                        playerMarker = L.marker([parsedZ, parsedX], {
+                        console.log(avatar);
+                        playerMarker = L.marker(latLng, {
                             title: name,
+                            icon: L.icon({
+                                iconUrl: avatar,
+                                iconSize: [16, 16],
+                                iconAnchor: [8, 8],
+                            }),
                         }).addTo(map);
                         markers[name] = playerMarker;
                     } else {
-                        playerMarker.setLatLng([parsedZ, parsedX]);
+                        playerMarker.setLatLng(latLng);
                     }
                 });
-            }, 500);
+            }, 3000);
         };
 
         start();

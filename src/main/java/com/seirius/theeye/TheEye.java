@@ -4,6 +4,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.io.ByteStreams;
+import com.seirius.theeye.common.PlayerIconController;
 import com.seirius.theeye.common.PlayerListController;
 import com.seirius.theeye.common.TheMap;
 import com.sun.net.httpserver.HttpServer;
@@ -85,6 +86,7 @@ public class TheEye {
             final String map = "/";
             HttpServer server = HttpServer.create(new InetSocketAddress(9000), 0);
             server.createContext(PlayerListController.PATH,  new PlayerListController(WORLD));
+            server.createContext(PlayerIconController.PATH,  new PlayerIconController(WORLD));
             server.createContext(map, (httpExchange -> {
                 try {
                     byte[] indexHtml = ByteStreams.toByteArray(TheEye.class.getResourceAsStream("/index.html"));

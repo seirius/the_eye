@@ -2,6 +2,7 @@ package com.seirius.theeye.common;
 
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.block.BlockState;
+import net.minecraft.client.Minecraft;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.Commands;
 import net.minecraft.util.math.BlockPos;
